@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		726790601F3DC621006D3406 /* RNGeoLocationManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 7267905F1F3DC621006D3406 /* RNGeoLocationManager.m */; };
 		B3E7B58A1CC2AC0600A0062D /* RNGeofence.m in Sources */ = {isa = PBXBuildFile; fileRef = B3E7B5891CC2AC0600A0062D /* RNGeofence.m */; };
 /* End PBXBuildFile section */
 
@@ -24,6 +25,8 @@
 
 /* Begin PBXFileReference section */
 		134814201AA4EA6300B7C361 /* libRNGeofence.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libRNGeofence.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		7267905E1F3DC621006D3406 /* RNGeoLocationManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RNGeoLocationManager.h; sourceTree = "<group>"; };
+		7267905F1F3DC621006D3406 /* RNGeoLocationManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = RNGeoLocationManager.m; sourceTree = "<group>"; };
 		B3E7B5881CC2AC0600A0062D /* RNGeofence.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RNGeofence.h; sourceTree = "<group>"; };
 		B3E7B5891CC2AC0600A0062D /* RNGeofence.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = RNGeofence.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -50,6 +53,8 @@
 		58B511D21A9E6C8500147676 = {
 			isa = PBXGroup;
 			children = (
+				7267905E1F3DC621006D3406 /* RNGeoLocationManager.h */,
+				7267905F1F3DC621006D3406 /* RNGeoLocationManager.m */,
 				B3E7B5881CC2AC0600A0062D /* RNGeofence.h */,
 				B3E7B5891CC2AC0600A0062D /* RNGeofence.m */,
 				134814211AA4EA7D00B7C361 /* Products */,
@@ -112,6 +117,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				726790601F3DC621006D3406 /* RNGeoLocationManager.m in Sources */,
 				B3E7B58A1CC2AC0600A0062D /* RNGeofence.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -197,7 +203,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				HEADER_SEARCH_PATHS = (
-				"$(inherited)",
+					"$(inherited)",
 					/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include,
 					"$(SRCROOT)/../../../React/**",
 					"$(SRCROOT)/../../react-native/React/**",
