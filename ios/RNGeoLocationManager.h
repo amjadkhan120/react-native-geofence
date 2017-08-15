@@ -21,5 +21,7 @@
 
 + (RNGeoLocationManager *)sharedManager;
 
+-(NSString*)setConfig:(NSDictionary*)config;
+- (void) addGeofence:(NSDictionary*)params success:(void (^)(NSString*))success error:(void (^)(NSString*))error;
 -(void)didHitFence:(CLRegion*)region didEnter:(BOOL)didEnter;
 @end

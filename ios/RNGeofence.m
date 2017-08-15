@@ -23,6 +23,7 @@ static NSString *const EVENT_GEOFENCE = @"geofence";
     if (self) {
         [[RNGeoLocationManager sharedManager] setDelegate:self];
     }
+    return self;
 }
 
 RCT_EXPORT_MODULE()
@@ -37,7 +38,7 @@ RCT_EXPORT_MODULE()
 RCT_EXPORT_METHOD(configure:(NSDictionary*)config success:(RCTResponseSenderBlock)success failure:(RCTResponseSenderBlock)failure)
 {
     dispatch_async(dispatch_get_main_queue(), ^{
-        NSDictionary *state = [[RNGeoLocationManager sharedManager] configure:config];
+        NSString *state = [[RNGeoLocationManager sharedManager] setConfig:config];
         if (state != nil) {
             success(@[state]);
         } else {
@@ -48,7 +49,7 @@ RCT_EXPORT_METHOD(configure:(NSDictionary*)config success:(RCTResponseSenderBloc
 
 RCT_EXPORT_METHOD(setConfig:(NSDictionary*)config success:(RCTResponseSenderBlock)success failure:(RCTResponseSenderBlock)failure)
 {
-    NSDictionary *state = [[RNGeoLocationManager sharedManager] setConfig:config];
+    NSString *state = [[RNGeoLocationManager sharedManager] setConfig:config];
     success(@[state]);
 }
 

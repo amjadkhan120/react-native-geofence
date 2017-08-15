@@ -40,6 +40,34 @@
     // Should never be called, but just here for clarity really.
 }
 
+-(NSString*)setConfig:(NSDictionary*)config{
+    return @"configured";
+}
+
+-(CLCircularRegion*)getRegionFromDict:(NSDictionary*)param{
+    NSString *identifier = [param valueForKey:@"identifier"];
+    double radius = [[param valueForKey:@"radius"] doubleValue];
+    double lat = [[param valueForKey:@"latitude"] doubleValue];
+    double lng = [[param valueForKey:@"longitude"] doubleValue];
+    
+    CLCircularRegion *region = [[CLCircularRegion alloc]initWithCenter:CLLocationCoordinate2DMake(lat, lng) radius:radius identifier:identifier];
+    return region;
+}
+
+-(void)addGeofence:(NSDictionary *)params success:(void (^)(NSString *))success error:(void (^)(NSString *))error{
+    if(![CLLocationManager isMonitoringAvailableForClass:[CLCircularRegion class]]){
+        error(@"Geofencing is not supported on this device!");
+        return;
+    }
+    if([CLLocationManager authorizationStatus] != kCLAuthorizationStatusAuthorizedAlways){
+        error(@"Grant Abode permission to access the device location.");
+        return;
+    }
+    CLCircularRegion *region = [self getRegionFromDict:params];
+    [self.locationManager startMonitoringForRegion:region];
+    success(@"Geofence Added successfully");
+}
+
 -(NSDictionary*)getLocationHash:(CLLocation*)location{
     NSMutableDictionary *locationHash = [NSMutableDictionary dictionary];
     
@@ -79,7 +107,7 @@
 
 -(void)didHitFence:(CLRegion*)region didEnter:(BOOL)didEnter{
     
-    if([[UIApplication sharedApplication] applicationState] != UIApplicationStateActive){
+    if([[UIApplication sharedApplication] applicationState] == UIApplicationStateActive){
         [self.delegate didHitGeofence:[self getHashForRegion:region didEnter:didEnter]];
     }else{
         NSDictionary *offlineInfo = [[NSUserDefaults standardUserDefaults] valueForKey:@"offlineinfo"];
