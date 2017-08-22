@@ -5,7 +5,14 @@
 #import <React/RCTEventEmitter.h>
 #endif
 
-@interface RNGeofence : RCTEventEmitter
+#if __has_include("RCTBridgeModule.h")
+#import "RCTBridgeModule.h"
+#else
+#import <React/RCTBridgeModule.h>
+#endif
+
+
+@interface RNGeofence : RCTEventEmitter <RCTBridgeModule>
 
 @end
   

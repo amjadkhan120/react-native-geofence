@@ -12,7 +12,6 @@
 @protocol RNGeoLocationManagerDelegate <NSObject>
 
 -(void)didHitGeofence:(NSDictionary*)fence;
-
 @end
 
 @interface RNGeoLocationManager : NSObject
@@ -22,6 +21,11 @@
 + (RNGeoLocationManager *)sharedManager;
 
 -(NSString*)setConfig:(NSDictionary*)config;
+-(NSDictionary*)getLocation;
+-(void)requestLocationUpdate;
+- (void) addListener:(NSString*)event callback:(void (^)(NSDictionary*))callback;
+
 - (void) addGeofence:(NSDictionary*)params success:(void (^)(NSString*))success error:(void (^)(NSString*))error;
+- (void) removeGeofences:(NSArray*)identifiers success:(void (^)(NSString*))success error:(void (^)(NSString*))error;
 -(void)didHitFence:(CLRegion*)region didEnter:(BOOL)didEnter;
 @end

@@ -1,6 +1,6 @@
 
 import { NativeModules } from 'react-native';
-
+const {NativeEventEmitter} = require('react-native');
 const { RNGeofence } = NativeModules;
 const EventEmitter = new NativeEventEmitter(RNGeofence);
 
@@ -8,7 +8,8 @@ var emptyFn = function() {};
 
 var GeoFenceAPI = {
     events: [
-        'geofence'
+        'geofence',
+        'location'
     ],
 
     configure: function(config, success, failure) {
@@ -20,6 +21,9 @@ var GeoFenceAPI = {
         success = success || emptyFn;
         failure = failure || emptyFn;
         RNGeofence.setConfig(config, success, failure);
+    },
+    requestLocation: function(){
+        RNGeofence.requestLocation();
     },
     addListener: function(event, callback) {
         if (this.events.indexOf(event) < 0) {
@@ -41,6 +45,9 @@ var GeoFenceAPI = {
     },
     onGeofence: function(callback) {
         return EventEmitter.addListener("geofence", callback);
+    },
+    onLocation: function(callback) {
+        return EventEmitter.addListener("location", callback);
     },
     addGeofence: function(config, success, failure) {
         success = success || emptyFn;
