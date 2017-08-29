@@ -61,6 +61,14 @@ RCT_EXPORT_MODULE()
     
 }
 
+RCT_EXPORT_METHOD(getCurrentWifi:(RCTResponseSenderBlock)success failure:(RCTResponseSenderBlock)failure){
+    [[RNGeoLocationManager sharedManager] getCurrentWifi:^(NSArray *response) {
+        success(@[response]);
+    } error:^(NSString *error) {
+        failure(@[error]);
+    }];
+}
+
 RCT_EXPORT_METHOD(requestLocation){
     [[RNGeoLocationManager sharedManager]requestLocationUpdate];
 }

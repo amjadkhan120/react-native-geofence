@@ -8,18 +8,20 @@
 
 #import "RNGeoLocationManager.h"
 #import <UIKit/UIKit.h>
+#import <SystemConfiguration/CaptiveNetwork.h>
 
 @interface RNGeoLocationManager () <CLLocationManagerDelegate>
 
-@property (nonatomic, strong) CLLocationManager *locationManager;
+
 @property (nonatomic, strong) NSMutableDictionary *eventsCallbackBlocks;
+
 
 @end
 
 @implementation RNGeoLocationManager
 
-@synthesize eventsCallbackBlocks = _eventsCallbackBlocks;
-
+@synthesize eventsCallbackBlocks    = _eventsCallbackBlocks;
+@synthesize locationManager         = _locationManager;
 + (RNGeoLocationManager *)sharedManager{
     static RNGeoLocationManager *sharedManager = nil;
     static dispatch_once_t onceToken;
@@ -31,15 +33,14 @@
 
 - (id)init {
     if (self = [super init]) {
-        self.locationManager = [[CLLocationManager alloc]init];
-        self.locationManager.delegate = self;
-        self.locationManager.desiredAccuracy = kCLLocationAccuracyBest;
-        [self.locationManager requestAlwaysAuthorization];
-        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(applicationDidBecomeActive:) name:UIApplicationDidBecomeActiveNotification object:nil];
-        [[NSNotificationCenter defaultCenter]addObserver:self selector:@selector(applicationDidEnterBackground:) name:UIApplicationDidEnterBackgroundNotification object:nil];
-        [self.locationManager startMonitoringSignificantLocationChanges];
     }
     return self;
+}
+
+-(void)setLocationManager:(CLLocationManager *)locationManager{
+    if(!_locationManager){
+        _locationManager = locationManager;
+    }
 }
 
 - (void)dealloc {
@@ -63,6 +64,7 @@
 -(NSString*)setConfig:(NSDictionary*)config{
     if(config){
         [[NSUserDefaults standardUserDefaults] setObject:config forKey:@"offlineinfo"];
+        [[NSUserDefaults standardUserDefaults] synchronize];
         return @"configured";
     }
     return @"configuration option can't be nil";
@@ -93,6 +95,23 @@
     
     CLCircularRegion *region = [[CLCircularRegion alloc]initWithCenter:CLLocationCoordinate2DMake(lat, lng) radius:radius identifier:identifier];
     return region;
+}
+
+-(void)getCurrentWifi:(void (^)(NSArray *))success error:(void (^)(NSString *))error{
+    
+    NSArray *ifs = (__bridge_transfer NSArray *)CNCopySupportedInterfaces();
+    NSLog(@"Supported interfaces: %@", ifs);
+    NSMutableArray *array = [NSMutableArray array];
+    for (NSString *ifnam in ifs) {
+        NSDictionary *info = (__bridge_transfer NSDictionary *)CNCopyCurrentNetworkInfo((__bridge CFStringRef)ifnam);
+        NSLog(@"%@ => %@", ifnam, info);
+        if (info && [info count]) { [array addObject:info]; }
+    }
+    if(array.count > 0){
+        success(array);
+    }else{
+        error(@"No Wifi connection found");
+    }
 }
 
 -(void)addGeofence:(NSDictionary *)params success:(void (^)(NSString *))success error:(void (^)(NSString *))error{
@@ -214,65 +233,110 @@
         
         [request setValue:[NSString stringWithFormat:@"%lu", (unsigned long)[requestData length]] forHTTPHeaderField:@"Content-Length"];
         [request setHTTPBody: requestData];
-        
-        [NSURLConnection sendAsynchronousRequest:request queue:[NSOperationQueue mainQueue] completionHandler:^(NSURLResponse * _Nullable response, NSData * _Nullable data, NSError * _Nullable connectionError) {
+        UIApplication*    app = [UIApplication sharedApplication];
+        __block UIBackgroundTaskIdentifier task = [app beginBackgroundTaskWithExpirationHandler:^{
+            [app endBackgroundTask:task];
+            task = UIBackgroundTaskInvalid;
+        }];
+        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+            [NSURLConnection sendAsynchronousRequest:request queue:[NSOperationQueue mainQueue] completionHandler:^(NSURLResponse * _Nullable response, NSData * _Nullable data, NSError * _Nullable connectionError) {
+                
+                //NSDictionary *responseInfo = [NSJSONSerialization JSONObjectWithData:data options:NSJSONReadingAllowFragments error:nil];
+                NSHTTPURLResponse *httpResponse = (NSHTTPURLResponse *) response;
+                if(httpResponse.statusCode == 200){
+                    UILocalNotification *notification = [[UILocalNotification alloc]init];
+                    notification.alertBody = [NSString stringWithFormat:@"%@ Fence %@ ",notifAct,region.identifier];
+                    notification.soundName = @"Default";
+                    [[UIApplication sharedApplication] presentLocalNotificationNow:notification];
+                }else{
+                    
+                    UILocalNotification *notification = [[UILocalNotification alloc]init];
+                    notification.alertTitle = [NSString stringWithFormat:@"Error posting fence"];
+                    notification.alertBody = [NSString stringWithFormat:@"%@ Fence %@ ",notifAct,region.identifier];
+                    notification.soundName = @"Default";
+                    [[UIApplication sharedApplication] presentLocalNotificationNow:notification];
+                }
+                
+                [app endBackgroundTask:task];
+                task = UIBackgroundTaskInvalid;
+                
+            }];
             
-            //NSDictionary *responseInfo = [NSJSONSerialization JSONObjectWithData:data options:NSJSONReadingAllowFragments error:nil];
-             NSHTTPURLResponse *httpResponse = (NSHTTPURLResponse *) response;
-            if(httpResponse.statusCode == 200){
+        });
+        
+    }
+    if(didEnter){
+        NSData *regiondata = [NSKeyedArchiver archivedDataWithRootObject:region];
+        CLCircularRegion *cirlRegion = (CLCircularRegion*)region;
+        CLLocation *regionLocation = [[CLLocation alloc]initWithCoordinate:cirlRegion.center altitude:self.locationManager.location.altitude horizontalAccuracy:self.locationManager.location.horizontalAccuracy verticalAccuracy:self.locationManager.location.verticalAccuracy timestamp:self.locationManager.location.timestamp];
+        NSData *locationData = [NSKeyedArchiver archivedDataWithRootObject:regionLocation];
+        [[NSUserDefaults standardUserDefaults] setObject:regiondata forKey:@"currentRegion"];
+        [[NSUserDefaults standardUserDefaults] setObject:locationData forKey:@"regionLocation"];
+        [[NSUserDefaults standardUserDefaults] synchronize];
+        [self.locationManager startUpdatingLocation];
+    }
+    
+}
+-(void)updatedLocations:(NSArray<CLLocation *> *)locations{
+    CLLocation *location = [locations lastObject];
+    //if([[UIApplication sharedApplication]applicationState] == UIApplicationStateBackground){
+    NSData *regionData = [[NSUserDefaults standardUserDefaults] objectForKey:@"currentRegion"];
+    if(regionData){
+        //[[self.locationManager monitoredRegions] enumerateObjectsUsingBlock:^(__kindof CLRegion * _Nonnull obj, BOOL * _Nonnull stop) {
+        
+            NSData *locationdata = [[NSUserDefaults standardUserDefaults] objectForKey:@"regionLocation"];
+            CLLocation *regionLocation = [NSKeyedUnarchiver unarchiveObjectWithData:locationdata];
+            CLCircularRegion *cirlRegion = (CLCircularRegion*)[NSKeyedUnarchiver unarchiveObjectWithData:regionData];
+            double distance = [location distanceFromLocation:regionLocation];
+            double diffDst = distance - cirlRegion.radius;
+            if(diffDst > 10 && diffDst < 50.0){
+                [self.locationManager stopUpdatingLocation];
+                [self didHitFence:cirlRegion didEnter:false];
+                [self.locationManager requestStateForRegion:(CLRegion*)cirlRegion];
+                /*
                 UILocalNotification *notification = [[UILocalNotification alloc]init];
-                notification.alertBody = [NSString stringWithFormat:@"%@ Fence %@ ",notifAct,region.identifier];
+                notification.alertTitle = [NSString stringWithFormat:@"Jugar Fit"];
+                notification.alertBody = [NSString stringWithFormat:@"Fence %@ ,%f",cirlRegion.identifier,diffDst];
                 notification.soundName = @"Default";
                 [[UIApplication sharedApplication] presentLocalNotificationNow:notification];
+                */
+                [[NSUserDefaults standardUserDefaults] removeObjectForKey:@"currentRegion"];
+                [[NSUserDefaults standardUserDefaults] removeObjectForKey:@"regionLocation"];
+                [[NSUserDefaults standardUserDefaults] synchronize];
+                return;
+            }else{/*
+                UILocalNotification *notification = [[UILocalNotification alloc]init];
+                notification.alertTitle = [NSString stringWithFormat:@"Too Far"];
+                notification.alertBody = [NSString stringWithFormat:@"Fence %@ ,%f",cirlRegion.identifier,diffDst];
+                notification.soundName = @"Default";
+                [[UIApplication sharedApplication] presentLocalNotificationNow:notification];*/
+                
             }
-            
-        }];
-        
+        if(location.speed <=0){
+            // device is still, not moving.
+            [self.locationManager stopUpdatingLocation];
+            [self.locationManager startMonitoringSignificantLocationChanges];
+            [[NSUserDefaults standardUserDefaults] setObject:@YES forKey:@"locationUpdateStop"];
+            [[NSUserDefaults standardUserDefaults] synchronize];
+        }
+        else{
+            BOOL isStop = [[[NSUserDefaults standardUserDefaults]valueForKey:@"locationUpdateStop"] boolValue];
+            if(isStop && location.speed > 0){
+                // device is moving & user is in a region.
+                [[NSUserDefaults standardUserDefaults] setObject:@NO forKey:@"locationUpdateStop"];
+                [[NSUserDefaults standardUserDefaults] synchronize];
+                [self.locationManager startUpdatingLocation];
+                
+            }
+        }
+        //}];
     }
-    
-}
-
-#pragma mark - Application Delegate
-
--(void)applicationDidBecomeActive:(NSNotification*)notification{
-    [self.locationManager startMonitoringSignificantLocationChanges];
-}
--(void)applicationDidEnterBackground:(NSNotification*)notification{
-    [self.locationManager stopMonitoringSignificantLocationChanges];
-}
-
-#pragma mark - LocationManager Delegate
-
--(void)locationManager:(CLLocationManager *)manager didChangeAuthorizationStatus:(CLAuthorizationStatus)status{
-    
-}
-
--(void)locationManager:(CLLocationManager *)manager monitoringDidFailForRegion:(CLRegion *)region withError:(NSError *)error{
-    NSLog(@"==== Location Manager ====");
-    NSLog(@"Monitoring failed for region with identifier: %@",region.identifier);
-}
-
--(void)locationManager:(CLLocationManager *)manager didFailWithError:(NSError *)error{
-    NSLog(@"==== Location Manager ====");
-    NSLog(@"failed with the following error: %@",error.localizedDescription);
-}
-
--(void)locationManager:(CLLocationManager *)manager didDetermineState:(CLRegionState)state forRegion:(CLRegion *)region{
-    if(state == CLRegionStateInside && [[UIApplication sharedApplication]applicationState] == UIApplicationStateActive){
-        [self didHitFence:region didEnter:true];
-    }
-}
-
-
--(void)locationManager:(CLLocationManager *)manager didUpdateLocations:(NSArray<CLLocation *> *)locations{
-    NSLog(@"==== Location Manager ====");
-    NSLog(@"-location: ");
     void (^locationBlock)() = [self.eventsCallbackBlocks objectForKey:@"location"];
     if(locationBlock){
-        CLLocation *location = [locations lastObject];
         NSDictionary *locationHash = [self getLocationHash:location];
         locationBlock(locationHash);
     }
+    
 }
 
 @end

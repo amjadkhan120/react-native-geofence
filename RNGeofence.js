@@ -54,6 +54,11 @@ var GeoFenceAPI = {
         failure = failure || emptyFn;
         RNGeofence.addGeofence(config, success, failure);
     },
+    getCurrentWifi: function(success, failure) {
+        success = success || emptyFn;
+        failure = failure || emptyFn;
+        RNGeofence.getCurrentWifi(success, failure);
+    },
     removeGeofence: function(identifier, success, failure) {
         success = success || emptyFn;
         failure = failure || emptyFn;
