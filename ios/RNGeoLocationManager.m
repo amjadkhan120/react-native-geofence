@@ -292,7 +292,7 @@
             if(diffDst > 10 && diffDst < 50.0){
                 [self.locationManager stopUpdatingLocation];
                 [self didHitFence:cirlRegion didEnter:false];
-                [self.locationManager requestStateForRegion:(CLRegion*)cirlRegion];
+                //[self.locationManager requestStateForRegion:(CLRegion*)cirlRegion];
                 /*
                 UILocalNotification *notification = [[UILocalNotification alloc]init];
                 notification.alertTitle = [NSString stringWithFormat:@"Jugar Fit"];
@@ -312,7 +312,7 @@
                 [[UIApplication sharedApplication] presentLocalNotificationNow:notification];*/
                 
             }
-        if(location.speed <=0){
+        /*if(location.speed <=0){
             // device is still, not moving.
             [self.locationManager stopUpdatingLocation];
             [self.locationManager startMonitoringSignificantLocationChanges];
@@ -328,7 +328,7 @@
                 [self.locationManager startUpdatingLocation];
                 
             }
-        }
+        }*/
         //}];
     }
     void (^locationBlock)() = [self.eventsCallbackBlocks objectForKey:@"location"];
