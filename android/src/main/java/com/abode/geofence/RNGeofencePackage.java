@@ -1,5 +1,5 @@
 
-package com.reactlibrary;
+package com.abode.geofence;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -16,7 +16,7 @@ public class RNGeofencePackage implements ReactPackage {
       return Arrays.<NativeModule>asList(new RNGeofenceModule(reactContext));
     }
 
-    @Override
+    //@Override
     public List<Class<? extends JavaScriptModule>> createJSModules() {
       return Collections.emptyList();
     }

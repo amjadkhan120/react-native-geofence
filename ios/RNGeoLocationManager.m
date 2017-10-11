@@ -143,7 +143,14 @@
     success(@"Geofence Added successfully");
     
     // This will fire geofence Event, if user is allready in the fence.
-    [self.locationManager requestStateForRegion:region];
+    [self performSelector:@selector(requestFenceState:) withObject:region afterDelay:1.0];
+    
+}
+
+-(void)requestFenceState:(id)object{
+    if([object isKindOfClass:[CLCircularRegion class]]){
+        [self.locationManager requestStateForRegion:(CLCircularRegion*)object];
+    }
 }
 
 - (void) removeGeofences:(NSArray*)identifiers success:(void (^)(NSString*))success error:(void (^)(NSString*))error{
