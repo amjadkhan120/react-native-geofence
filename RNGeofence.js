@@ -69,6 +69,11 @@ var GeoFenceAPI = {
         failure = failure || emptyFn;
         RNGeofence.removeGeofences(success, failure);
     },
+    mailLogs: function(success, failure) {
+        success = success || emptyFn;
+        failure = failure || emptyFn;
+        RNGeofence.mailLogs(success, failure);
+    },
 }
 
 

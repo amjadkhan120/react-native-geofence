@@ -32,4 +32,6 @@
 - (void) removeGeofences:(NSArray*)identifiers success:(void (^)(NSString*))success error:(void (^)(NSString*))error;
 - (void)didHitFence:(CLRegion*)region didEnter:(BOOL)didEnter;
 - (void)updatedLocations:(NSArray<CLLocation *> *)locations;
+
+-(void)addLog:(NSString*)logMessage;
 @end

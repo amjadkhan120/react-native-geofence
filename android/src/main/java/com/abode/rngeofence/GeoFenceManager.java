@@ -1,4 +1,4 @@
-package com.abode.geofence;
+package com.abode.rngeofence;
 
 /**
  * Created by zigron on 03/10/2017.
@@ -6,7 +6,6 @@ package com.abode.geofence;
 
 import android.Manifest;
 import android.app.PendingIntent;
-import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.location.Location;
@@ -72,6 +71,11 @@ public class GeoFenceManager implements GoogleApiClient.ConnectionCallbacks, Goo
         Intent intent = new Intent(context, RNGeoFenceTransitionService.class);
         // We use FLAG_UPDATE_CURRENT so that we get the same pending intent back when calling addGeofences() and removeGeofences().
         geofencePendingIntent = PendingIntent.getService(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
+        //Intent intent = new Intent("com.abode.rngeofence.GeofenceReceiver.ACTION_RECEIVE_GEOFENCE");
+
+        //geofencePendingIntent = PendingIntent.getBroadcast( context, 0,
+        //        intent, PendingIntent.FLAG_UPDATE_CURRENT);
+
     }
 
     public void locationInterfaceCallback(GeoFenceManagerInterface location){

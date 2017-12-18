@@ -1,5 +1,5 @@
 
-package com.abode.geofence;
+package com.abode.rngeofence;
 
 import java.util.Arrays;
 import java.util.Collections;

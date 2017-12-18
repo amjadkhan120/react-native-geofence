@@ -1,12 +1,13 @@
 
 #import "RNGeofence.h"
 #import "RNGeoLocationManager.h"
+#import <MessageUI/MessageUI.h>
 
 
 static NSString *const EVENT_GEOFENCE = @"geofence";
 static NSString *const EVENT_LOCATIONCHANGE = @"location";
 
-@interface RNGeofence () <RNGeoLocationManagerDelegate>
+@interface RNGeofence () <RNGeoLocationManagerDelegate, MFMailComposeViewControllerDelegate>
 
 @end
 
@@ -111,8 +112,38 @@ RCT_EXPORT_METHOD(removeGeofences:(RCTResponseSenderBlock)success failure:(RCTRe
     
 }
 
+RCT_EXPORT_METHOD(mailLogs:(RCTResponseSenderBlock)success failure:(RCTResponseSenderBlock)failure)
+{
+    
+    NSString *docDir = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, true) lastObject];
+    NSString *storagefile = [docDir stringByAppendingPathComponent:@"nativelog.json"];
+    
+    NSString *jsonStr = [NSString stringWithContentsOfFile:storagefile encoding:NSUTF8StringEncoding error:nil];
+    NSData* jsonData = [jsonStr dataUsingEncoding:NSUTF8StringEncoding];
+    
+    
+    
+    UIViewController *topController = [[[[UIApplication sharedApplication]delegate] window] rootViewController];
+    if ([MFMailComposeViewController canSendMail]) {
+        MFMailComposeViewController *composeViewController = [[MFMailComposeViewController alloc] initWithNibName:nil bundle:nil];
+        [composeViewController setMailComposeDelegate:self];
+        [composeViewController setToRecipients:@[@"amjad.kh@zigron.com"]];
+        [composeViewController setSubject:@"Native  Logs"];
+        [composeViewController addAttachmentData:jsonData mimeType:@"text/plain" fileName:@"log.json"];
+        [topController presentViewController:composeViewController animated:YES completion:nil];
+    }
+}
+
 -(void)didHitGeofence:(NSDictionary *)fence{
     [self sendEventWithName:EVENT_GEOFENCE body:fence];
+}
+
+#pragma mark - Mail Delegate
+
+- (void)mailComposeController:(MFMailComposeViewController*)controller didFinishWithResult:(MFMailComposeResult)result error:(NSError*)error
+{
+    //Add an alert in case of failure
+    [controller dismissViewControllerAnimated:YES completion:nil];
 }
 
 @end
