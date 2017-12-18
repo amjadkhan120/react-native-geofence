@@ -1,6 +1,7 @@
 
-package com.abode.geofence;
+package com.abode.rngeofence;
 
+import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.support.annotation.NonNull;
@@ -15,7 +16,6 @@ import com.facebook.react.bridge.ReactMethod;
 import com.facebook.react.bridge.Callback;
 
 
-import com.facebook.react.bridge.WritableArray;
 import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.modules.core.DeviceEventManagerModule;
 import com.google.android.gms.common.api.ResultCallbacks;
@@ -60,13 +60,17 @@ public class RNGeofenceModule extends ReactContextBaseJavaModule implements GeoF
       }
       Intent fenceIntent = intent.getParcelableExtra("geofence");
 
-
+      Log.d(GeoFenceManager.TAG, fenceIntent.toString());
       GeofencingEvent geofencingEvent = GeofencingEvent.fromIntent(fenceIntent);
 
       if (geofencingEvent.hasError())
       {
         // Suppress geofencing event with error
+        int error = geofencingEvent.getErrorCode();
+        Integer integerError = new Integer(error);
         Log.d(GeoFenceManager.TAG, "Suppress geocoding event with error");
+        Log.d(GeoFenceManager.TAG, integerError.toString());
+
         return;
       }
 
@@ -147,7 +151,7 @@ public class RNGeofenceModule extends ReactContextBaseJavaModule implements GeoF
     // setLoiteringDelay, is the delay between Fence Enter Event & Dwell
     Geofence fence = new Geofence.Builder().setRequestId(identifier)
             .setCircularRegion(latitude, longitude, radius)
-            .setTransitionTypes(Geofence.GEOFENCE_TRANSITION_ENTER | Geofence.GEOFENCE_TRANSITION_EXIT | Geofence.GEOFENCE_TRANSITION_DWELL)
+            .setTransitionTypes(Geofence.GEOFENCE_TRANSITION_ENTER | Geofence.GEOFENCE_TRANSITION_EXIT)
             .setExpirationDuration(Geofence.NEVER_EXPIRE)
             .setLoiteringDelay(300000)
             .build();

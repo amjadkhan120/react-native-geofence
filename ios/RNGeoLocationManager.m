@@ -120,6 +120,7 @@
         return;
     }
     if([CLLocationManager authorizationStatus] != kCLAuthorizationStatusAuthorizedAlways){
+        [self.locationManager requestAlwaysAuthorization];
         error(@"Grant Abode permission to access the device location.");
         return;
     }
@@ -133,8 +134,15 @@
     if(filteredRegions.count > 0){
         //already added fence with same id.
         NSLog(@"%@",[filteredRegions allObjects]);
+        CLCircularRegion *oldRegion = [[filteredRegions allObjects] lastObject];
+        if(oldRegion.radius != region.radius || oldRegion.center.latitude != region.center.latitude || oldRegion.center.longitude != oldRegion.center.longitude){
+            // Region's updated, update to locationmanager aswell.
+            [self.locationManager stopMonitoringForRegion:oldRegion];
+            [self.locationManager startMonitoringForRegion:region];
+        }
         // This will fire geofence Event, if user is allready in the fence.
-        [self.locationManager requestStateForRegion:[[filteredRegions allObjects]firstObject]];
+        [self performSelector:@selector(requestFenceState:) withObject:[[filteredRegions allObjects] firstObject] afterDelay:3.0];
+        //[self.locationManager requestStateForRegion:[[filteredRegions allObjects]firstObject]];
         success(@"Already added,Trying to add a geofence with same id");
         return;
     }
@@ -143,7 +151,7 @@
     success(@"Geofence Added successfully");
     
     // This will fire geofence Event, if user is allready in the fence.
-    [self performSelector:@selector(requestFenceState:) withObject:region afterDelay:1.0];
+    [self performSelector:@selector(requestFenceState:) withObject:region afterDelay:3.0];
     
 }
 
@@ -199,95 +207,113 @@
 }
 
 -(void)didHitFence:(CLRegion*)region didEnter:(BOOL)didEnter{
-    
+    [self addLog:[NSString stringWithFormat:@"Fence %@ didEnter: %d",region.identifier,didEnter]];
     if([[UIApplication sharedApplication] applicationState] == UIApplicationStateActive){
+        [self addLog:[NSString stringWithFormat:@"Fence %@ Call Send to JS",region.identifier]];
+        //[[NSUserDefaults standardUserDefaults]setValue:[NSNumber numberWithBool:didEnter] forKey:region.identifier];
+        //[[NSUserDefaults standardUserDefaults] synchronize];
         [self.delegate didHitGeofence:[self getHashForRegion:region didEnter:didEnter]];
     }else{
-        NSDictionary *offlineInfo = [[NSUserDefaults standardUserDefaults] valueForKey:@"offlineinfo"];
-        NSString *method = [offlineInfo valueForKey:@"method"];
-        NSURL *url = [NSURL URLWithString:[offlineInfo valueForKey:@"url"]];
-        NSDictionary *headers = [offlineInfo valueForKey:@"headers"];
-        
-        CLLocation *location = self.locationManager.location;
-        CLCircularRegion *circle = (CLCircularRegion*)region;
-        NSMutableDictionary *regionHash = [NSMutableDictionary dictionary];
-        
-        NSString *identifier = [circle identifier];
-        
-        [regionHash setObject:identifier forKey:@"id"];
-        
-        [regionHash setValue:[NSNumber numberWithDouble:location.coordinate.latitude] forKey:@"lat"];
-        [regionHash setValue:[NSNumber numberWithDouble:location.coordinate.longitude] forKey:@"lng"];
-        
-        NSString *action = @"out";
-        NSString *notifAct = @"EXIT";
-        if(didEnter){
-            action = @"in";
-            notifAct = @"ENTER";
-        }
-        [regionHash setObject:action forKey:@"rule"];
-        NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url
-                                                               cachePolicy:NSURLRequestUseProtocolCachePolicy timeoutInterval:60.0];
-        [request setHTTPMethod:method];
-        [request setValue:@"application/json" forHTTPHeaderField:@"Accept"];
-        [request setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
-        
-        for(NSString *key in [headers allKeys]){
-            [request setValue:[headers valueForKey:key] forHTTPHeaderField:key];
-        }
-        
-        NSData *requestData = [NSJSONSerialization dataWithJSONObject:regionHash options:NSJSONWritingPrettyPrinted error:nil];
-        
-        [request setValue:[NSString stringWithFormat:@"%lu", (unsigned long)[requestData length]] forHTTPHeaderField:@"Content-Length"];
-        [request setHTTPBody: requestData];
-        UIApplication*    app = [UIApplication sharedApplication];
-        __block UIBackgroundTaskIdentifier task = [app beginBackgroundTaskWithExpirationHandler:^{
-            [app endBackgroundTask:task];
-            task = UIBackgroundTaskInvalid;
-        }];
-        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-            [NSURLConnection sendAsynchronousRequest:request queue:[NSOperationQueue mainQueue] completionHandler:^(NSURLResponse * _Nullable response, NSData * _Nullable data, NSError * _Nullable connectionError) {
-                
-                //NSDictionary *responseInfo = [NSJSONSerialization JSONObjectWithData:data options:NSJSONReadingAllowFragments error:nil];
-                NSHTTPURLResponse *httpResponse = (NSHTTPURLResponse *) response;
-                if(httpResponse.statusCode == 200){
-                    UILocalNotification *notification = [[UILocalNotification alloc]init];
-                    notification.alertBody = [NSString stringWithFormat:@"%@ Fence %@ ",notifAct,region.identifier];
-                    notification.soundName = @"Default";
-                    [[UIApplication sharedApplication] presentLocalNotificationNow:notification];
-                }else{
-                    
-                    UILocalNotification *notification = [[UILocalNotification alloc]init];
-                    notification.alertTitle = [NSString stringWithFormat:@"Error posting fence"];
-                    notification.alertBody = [NSString stringWithFormat:@"%@ Fence %@ ",notifAct,region.identifier];
-                    notification.soundName = @"Default";
-                    [[UIApplication sharedApplication] presentLocalNotificationNow:notification];
-                }
-                
+        /*BOOL previousState = [[[NSUserDefaults standardUserDefaults]valueForKey:region.identifier] boolValue];
+        if(previousState != didEnter){
+            //fire only when current & previous state differe,
+            // this logic is to avoid triggering same event multiple time
+            [[NSUserDefaults standardUserDefaults]setValue:[NSNumber numberWithBool:didEnter] forKey:region.identifier];
+            [[NSUserDefaults standardUserDefaults] synchronize]; */
+            NSDictionary *offlineInfo = [[NSUserDefaults standardUserDefaults] valueForKey:@"offlineinfo"];
+            NSString *method = [offlineInfo valueForKey:@"method"];
+            NSURL *url = [NSURL URLWithString:[offlineInfo valueForKey:@"url"]];
+            NSDictionary *headers = [offlineInfo valueForKey:@"headers"];
+            
+            CLLocation *location = self.locationManager.location;
+            CLCircularRegion *circle = (CLCircularRegion*)region;
+            NSMutableDictionary *regionHash = [NSMutableDictionary dictionary];
+            
+            NSString *identifier = [circle identifier];
+            
+            [regionHash setObject:identifier forKey:@"id"];
+            
+            [regionHash setValue:[NSNumber numberWithDouble:location.coordinate.latitude] forKey:@"lat"];
+            [regionHash setValue:[NSNumber numberWithDouble:location.coordinate.longitude] forKey:@"lng"];
+            
+            NSString *action = @"out";
+            NSString *notifAct = @"EXIT";
+            if(didEnter){
+                action = @"in";
+                notifAct = @"ENTER";
+            }
+            [regionHash setObject:action forKey:@"rule"];
+            NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url
+                                                                   cachePolicy:NSURLRequestUseProtocolCachePolicy timeoutInterval:60.0];
+            [request setHTTPMethod:method];
+            [request setValue:@"application/json" forHTTPHeaderField:@"Accept"];
+            [request setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
+            
+            for(NSString *key in [headers allKeys]){
+                [request setValue:[headers valueForKey:key] forHTTPHeaderField:key];
+            }
+            
+            
+            [self addLog:[NSString stringWithFormat:@"Region  %@ Hit With Data \n %@",region.identifier,regionHash]];
+            
+            NSData *requestData = [NSJSONSerialization dataWithJSONObject:regionHash options:NSJSONWritingPrettyPrinted error:nil];
+            
+            [request setValue:[NSString stringWithFormat:@"%lu", (unsigned long)[requestData length]] forHTTPHeaderField:@"Content-Length"];
+            [request setHTTPBody: requestData];
+            UIApplication*    app = [UIApplication sharedApplication];
+            __block UIBackgroundTaskIdentifier task = [app beginBackgroundTaskWithExpirationHandler:^{
                 [app endBackgroundTask:task];
                 task = UIBackgroundTaskInvalid;
-                
             }];
+            dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+                [NSURLConnection sendAsynchronousRequest:request queue:[NSOperationQueue mainQueue] completionHandler:^(NSURLResponse * _Nullable response, NSData * _Nullable data, NSError * _Nullable connectionError) {
+                    
+                    NSDictionary *responseInfo = [NSJSONSerialization JSONObjectWithData:data options:NSJSONReadingAllowFragments error:nil];
+                    [self addLog:[NSString stringWithFormat:@"Region Hit %@ Response \n %@",region.identifier,responseInfo]];
+                    NSHTTPURLResponse *httpResponse = (NSHTTPURLResponse *) response;
+                    if(httpResponse.statusCode == 200){
+                        UILocalNotification *notification = [[UILocalNotification alloc]init];
+                        notification.alertBody = [NSString stringWithFormat:@"%@ Fence %@",notifAct,region.identifier];
+                        notification.soundName = @"Default";
+                        //[[UIApplication sharedApplication] presentLocalNotificationNow:notification];
+                    }else{
+                        
+                        UILocalNotification *notification = [[UILocalNotification alloc]init];
+                        notification.alertTitle = [NSString stringWithFormat:@"Error posting fence"];
+                        notification.alertBody = [NSString stringWithFormat:@"%@ Fence %@ Error: %@",notifAct,region.identifier,connectionError];
+                        notification.soundName = @"Default";
+                        //[[UIApplication sharedApplication] presentLocalNotificationNow:notification];
+                        
+                    }
+                    
+                    [app endBackgroundTask:task];
+                    task = UIBackgroundTaskInvalid;
+                    
+                }];
+                
+            });
             
-        });
-        
+        /*}else{
+            [self addLog:[NSString stringWithFormat:@"Fence %@ Call Ignored didEnter: %d",region.identifier,didEnter]];
+        }*/
+        if(didEnter){
+            NSData *regiondata = [NSKeyedArchiver archivedDataWithRootObject:region];
+            CLCircularRegion *cirlRegion = (CLCircularRegion*)region;
+            CLLocation *regionLocation = [[CLLocation alloc]initWithCoordinate:cirlRegion.center altitude:self.locationManager.location.altitude horizontalAccuracy:self.locationManager.location.horizontalAccuracy verticalAccuracy:self.locationManager.location.verticalAccuracy timestamp:self.locationManager.location.timestamp];
+            NSData *locationData = [NSKeyedArchiver archivedDataWithRootObject:regionLocation];
+            [[NSUserDefaults standardUserDefaults] setObject:regiondata forKey:@"currentRegion"];
+            [[NSUserDefaults standardUserDefaults] setObject:locationData forKey:@"regionLocation"];
+            [[NSUserDefaults standardUserDefaults] synchronize];
+            [self.locationManager startUpdatingLocation];
+        }
     }
-    if(didEnter){
-        NSData *regiondata = [NSKeyedArchiver archivedDataWithRootObject:region];
-        CLCircularRegion *cirlRegion = (CLCircularRegion*)region;
-        CLLocation *regionLocation = [[CLLocation alloc]initWithCoordinate:cirlRegion.center altitude:self.locationManager.location.altitude horizontalAccuracy:self.locationManager.location.horizontalAccuracy verticalAccuracy:self.locationManager.location.verticalAccuracy timestamp:self.locationManager.location.timestamp];
-        NSData *locationData = [NSKeyedArchiver archivedDataWithRootObject:regionLocation];
-        [[NSUserDefaults standardUserDefaults] setObject:regiondata forKey:@"currentRegion"];
-        [[NSUserDefaults standardUserDefaults] setObject:locationData forKey:@"regionLocation"];
-        [[NSUserDefaults standardUserDefaults] synchronize];
-        [self.locationManager startUpdatingLocation];
-    }
-    
+
 }
 -(void)updatedLocations:(NSArray<CLLocation *> *)locations{
     CLLocation *location = [locations lastObject];
     //if([[UIApplication sharedApplication]applicationState] == UIApplicationStateBackground){
     NSData *regionData = [[NSUserDefaults standardUserDefaults] objectForKey:@"currentRegion"];
+    CLLocationDirection course = location.course;
     if(regionData){
         //[[self.locationManager monitoredRegions] enumerateObjectsUsingBlock:^(__kindof CLRegion * _Nonnull obj, BOOL * _Nonnull stop) {
         
@@ -299,6 +325,7 @@
             if(diffDst > 10 && diffDst < 50.0){
                 [self.locationManager stopUpdatingLocation];
                 [self didHitFence:cirlRegion didEnter:false];
+                [self addLog:[NSString stringWithFormat:@"Manual Fence Trigger %@",cirlRegion.identifier]];
                 //[self.locationManager requestStateForRegion:(CLRegion*)cirlRegion];
                 /*
                 UILocalNotification *notification = [[UILocalNotification alloc]init];
@@ -338,12 +365,80 @@
         }*/
         //}];
     }
+    else if([[UIApplication sharedApplication] applicationState] != UIApplicationStateActive){
+        //background location fetched.
+        // process for possible fence hits.
+        __block CLLocation *currentLocation = location;
+        [[self.locationManager monitoredRegions] enumerateObjectsUsingBlock:^(__kindof CLRegion * _Nonnull obj, BOOL * _Nonnull stop) {
+            CLCircularRegion *cirlRegion = (CLCircularRegion*)obj;
+            CLLocation *regionLocation = [[CLLocation alloc] initWithLatitude:cirlRegion.center.latitude longitude:cirlRegion.center.longitude];
+            BOOL didEnter = [cirlRegion containsCoordinate:currentLocation.coordinate];
+            double distance = [currentLocation distanceFromLocation:regionLocation];
+            double diffDst = distance - cirlRegion.radius;
+            if(diffDst <=0 || didEnter){
+                //In the Fence.
+                [self didHitFence:cirlRegion didEnter:true];
+                [self addLog:[NSString stringWithFormat:@"Manual Fence Trigger %@ InBackground",cirlRegion.identifier]];
+            }
+            else if(diffDst > 10 && diffDst < 50.0){
+                //outside Fence
+                [self didHitFence:cirlRegion didEnter:false];
+                [self addLog:[NSString stringWithFormat:@"Manual Fence Trigger %@ InBackground",cirlRegion.identifier]];
+            }
+        }];
+        
+    }
     void (^locationBlock)() = [self.eventsCallbackBlocks objectForKey:@"location"];
     if(locationBlock){
         NSDictionary *locationHash = [self getLocationHash:location];
         locationBlock(locationHash);
     }
     
+}
+
+-(void)addLog:(NSString*)logMessage{
+    
+    NSString *docDir = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, true) lastObject];
+    NSString *storagefile = [docDir stringByAppendingPathComponent:@"nativelog.json"];
+    
+    BOOL isDir = false;
+    if(![[NSFileManager defaultManager] fileExistsAtPath:storagefile isDirectory:&isDir]){
+        [[NSFileManager defaultManager] createFileAtPath:storagefile contents:nil attributes:nil];
+    }
+    
+    
+    NSString *jsonStr = [NSString stringWithContentsOfFile:storagefile encoding:NSUTF8StringEncoding error:nil];
+    NSData* jsonData = [jsonStr dataUsingEncoding:NSUTF8StringEncoding];
+    
+    NSDictionary *jsonLog = [NSJSONSerialization JSONObjectWithData:jsonData options:0 error:nil];
+    NSArray *rows = [jsonLog valueForKey:@"rows"];
+    
+    NSString  *idStr = [[NSUUID UUID] UUIDString];
+    NSString *level = @"log";
+    NSString *color = @"#FFF";
+    NSDateFormatter *formatter = [[NSDateFormatter alloc] init];
+    [formatter setDateFormat:@"yyyy-MM-dd hh:mm:ss"];
+    NSString *timeStamp = [formatter stringFromDate:[NSDate date]];
+    NSString *message = logMessage;
+    
+    NSMutableDictionary *newLogRow = [NSMutableDictionary dictionary];
+    [newLogRow setValue:level forKey:@"level"];
+    [newLogRow setValue:color forKey:@"color"];
+    [newLogRow setValue:idStr forKey:@"id"];
+    [newLogRow setValue:timeStamp forKey:@"timeStamp"];
+    [newLogRow setValue:message forKey:@"message"];
+    [newLogRow setValue:[NSNumber numberWithInteger:rows.count] forKey:@"lengthAtInsertion"];
+    
+    NSMutableArray *newRows = [NSMutableArray array];
+    if(rows){
+        [newRows addObjectsFromArray:rows];
+    }
+    [newRows addObject:newLogRow];
+    
+    NSMutableDictionary *newObject = [NSMutableDictionary dictionary];
+    [newObject setValue:newRows forKey:@"rows"];
+    NSData *newJsonData = [NSJSONSerialization dataWithJSONObject:newObject options:0 error:nil];
+    [newJsonData writeToFile:storagefile atomically:true];
 }
 
 @end
