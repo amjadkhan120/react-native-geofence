@@ -6,14 +6,19 @@ package com.abode.rngeofence;
 
 import android.app.IntentService;
 import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.app.ActivityManager;
 //import android.support.annotation.Nullable;
+import android.graphics.BitmapFactory;
+import android.graphics.Color;
 import android.support.v4.app.NotificationCompat;
+import android.support.v4.app.TaskStackBuilder;
 import android.support.v4.content.LocalBroadcastManager;
 import android.util.Log;
 
+import com.google.android.gms.location.Geofence;
 import com.google.android.gms.location.GeofencingEvent;
 
 import java.util.List;
@@ -39,6 +44,18 @@ public class RNGeoFenceTransitionService extends IntentService{
             return;
         }
 
+        GeofencingEvent geofencingEvent = GeofencingEvent.fromIntent(intent);
+
+        if (geofencingEvent.hasError())
+        {
+            // Suppress geofencing event with error
+            int error = geofencingEvent.getErrorCode();
+            Integer integerError = new Integer(error);
+            Log.d(GeoFenceManager.TAG, "Suppress geocoding event with error");
+            Log.d(GeoFenceManager.TAG, integerError.toString());
+            return;
+        }
+
         ActivityManager activityManager = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
         List<ActivityManager.RunningAppProcessInfo> services = activityManager.getRunningAppProcesses();
         boolean isActivityFound = false;
@@ -50,17 +67,7 @@ public class RNGeoFenceTransitionService extends IntentService{
 
 
 
-        GeofencingEvent geofencingEvent = GeofencingEvent.fromIntent(intent);
 
-        if (geofencingEvent.hasError())
-        {
-            // Suppress geofencing event with error
-            int error = geofencingEvent.getErrorCode();
-            Integer integerError = new Integer(error);
-            Log.d(GeoFenceManager.TAG, "Suppress geocoding event with error");
-            Log.d(GeoFenceManager.TAG, integerError.toString());
-
-        }
 
         if(isActivityFound) {
             Intent intent1 = new Intent("geofenceIntent");
