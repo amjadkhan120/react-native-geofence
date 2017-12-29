@@ -31,7 +31,10 @@ repositories {
 
 dependencies {
     compile 'com.facebook.react:react-native:+'
+    compile "com.esotericsoftware:kryo:4.0.0"
     compile 'com.google.android.gms:play-services-location:11.0.2'
     compile 'com.android.support:support-v4:25.0.1'
 }
+
+
   

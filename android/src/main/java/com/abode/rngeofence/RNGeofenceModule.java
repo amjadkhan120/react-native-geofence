@@ -159,6 +159,7 @@ public class RNGeofenceModule extends ReactContextBaseJavaModule implements GeoF
     List<Geofence> fenceList = Arrays.asList(fence);
     try {
       geofenceManager.addGeofences(fenceList,new ResultCallbacks<Status>(){
+        boolean callbackWasCalled = false;
         @Override
         public void onSuccess(@NonNull Status status)
         {
@@ -166,14 +167,30 @@ public class RNGeofenceModule extends ReactContextBaseJavaModule implements GeoF
 
           //data.addRegion(region);
           //data.save(getReactAppl  icationContext());
-          success.invoke();
+          if(callbackWasCalled)return;
+          callbackWasCalled = true;
+          try {
+            success.invoke();
+          } catch (Exception e){
+            // throw Error
+          }
+
+
+
         }
 
         @Override
         public void onFailure(@NonNull Status status)
         {
           Log.d(GeoFenceManager.TAG, "addCircularRegion: " + status);
-          failure.invoke();
+          if(callbackWasCalled)return;
+          callbackWasCalled = true;
+          try {
+            failure.invoke();
+          }catch (Exception e){
+            //throw error
+          }
+
           //promise.reject(Integer.toString(status.getStatusCode()), status.getStatusMessage());
         }
       });
@@ -187,6 +204,23 @@ public class RNGeofenceModule extends ReactContextBaseJavaModule implements GeoF
 
   @ReactMethod
   public void removeGeofences(@NonNull final Callback success, @NonNull final Callback failure){
+    try {
+      geofenceManager.clearGeofences(new ResultCallbacks<Status>() {
+        @Override
+        public void onSuccess(@NonNull Status status) {
+          Log.d(GeoFenceManager.TAG, "geofence cleared: " + status);
+          success.invoke();
+        }
 
+        @Override
+        public void onFailure(@NonNull Status status) {
+          Log.d(GeoFenceManager.TAG, "Error Clearing Geofence: " + status);
+          failure.invoke();
+        }
+      });
+
+    } catch (InterruptedException e) {
+      e.printStackTrace();
+    }
   }
 }
